@@ -15,20 +15,23 @@ int main()
     if (pid == 0)
     {
         // Child
+        close(fd[0]);
+
+        // bind STDOUT to fd[1], so that output from processes gets sent through the pipe
         dup2(fd[1], STDOUT_FILENO);
         execlp("ls", "ls", "/", NULL);
+
         close(fd[1]);
     }
     else if (pid > 0)
     {
         // Parent
+        close(fd[1]);
 
         // wait for child to finish execution
         wait(NULL);
 
-        // close unused pipe ends and read from child
-        close(fd[1]);
-
+        // bind STDIN to fd[0], so that processes reading from STDIN will read from fd[0] instead
         dup2(fd[0], STDIN_FILENO);
         execlp("wc", "wc", "-l", NULL);
 
