@@ -17,7 +17,7 @@ int main()
         // Child
         close(fd[0]);
 
-        // bind STDOUT to fd[1], so that output from processes gets sent through the pipe
+        // bind STDOUT to fd[1], so that output from any process gets sent through the pipe
         dup2(fd[1], STDOUT_FILENO);
         execlp("ls", "ls", "/", NULL);
 
