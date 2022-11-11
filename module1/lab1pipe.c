@@ -12,9 +12,9 @@ int main()
     pid_t pid;
     pid = fork();
 
+    // Child
     if (pid == 0)
     {
-        // Child
         close(fd[0]);
 
         // bind STDOUT to fd[1], so that output from any process gets sent through the pipe
@@ -23,9 +23,9 @@ int main()
 
         close(fd[1]);
     }
+    // Parent
     else if (pid > 0)
     {
-        // Parent
         close(fd[1]);
 
         // wait for child to finish execution
