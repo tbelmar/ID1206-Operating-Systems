@@ -98,7 +98,9 @@ int main()
     for (int i = 0; i < 1000; i++)
     {
         fgets(buffer, 8, addresses);
+
         sscanf(buffer, "%d", &logicalAddress);
+
         addressList[i] = parseAddress(logicalAddress);
         addressList[i].physicalAddress = (search(addressList[i]) * 256) + addressList[i].offset;
         printf("logical address: %d", addressList[i].logicalAddress);
@@ -106,6 +108,5 @@ int main()
         signed int lol = memory[addressList[i].physicalAddress];
         printf("  value: %d\n", lol); // Make print signed plz
     }
-
     return 0;
 }
