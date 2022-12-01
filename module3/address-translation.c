@@ -9,6 +9,12 @@ int takenFrames[256];
 int pageTable[256];
 FILE *fileBin;
 
+int tlbHead = 0;
+int tlb[16][2];
+
+int tlbHits = 0;
+int pageFaults = 0;
+
 struct addressComponents
 {
     int logicalAddress;
@@ -43,39 +49,69 @@ int loadPage(int pageNumber)
     }
 }
 
-int search(struct addressComponents address)
+int tlbLookup(struct addressComponents address)
 {
-    // TLB
-    if (0)
+    tlbHead %= 16;
+
+    int len = (sizeof(tlb) / sizeof(int));
+    for (int i = 0; i < len; i++)
     {
-    }
-    // PageTable
-    else if (pageTable[address.pageNumber] != -1)
-    {
-        return pageTable[address.pageNumber];
-    }
-    // PageFault -- The page is not found int he main memory and must search the second backup memory (BACKING_STORE.bin)
-    else
-    {
-        int frame = loadPage(address.pageNumber);
-        pageTable[address.pageNumber] = frame;
-        address.physicalAddress = (frame * 256) + address.offset;
-        return frame;
+        int page = tlb[i][0];
+        int frame = tlb[i][1];
+
+        // hit
+        if (page == address.pageNumber)
+        {
+            return tlb[i][1];
+        }
     }
 
-    return 0;
+    // if we get here, it's a miss
+    return -1;
+}
+
+int search(struct addressComponents address)
+{
+    int frame = tlbLookup(address);
+    // TLB hit
+    if (frame != -1)
+    {
+        tlbHits++;
+        return frame;
+    }
+    // TLB miss
+    else
+    {
+        // Page table hit
+        if (pageTable[address.pageNumber] != -1)
+        {
+            frame = pageTable[address.pageNumber];
+        }
+        // PageFault -- The page is not found in the main memory and must search the second backup memory (BACKING_STORE.bin)
+        else
+        {
+            pageFaults++;
+            frame = loadPage(address.pageNumber);
+            pageTable[address.pageNumber] = frame;
+        }
+
+        // update the TLB
+        tlb[tlbHead][0] = address.pageNumber;
+        tlb[tlbHead][1] = frame;
+
+        tlbHead++;
+
+        return frame;
+    }
 }
 
 struct addressComponents parseAddress(int logicalAddress)
 {
-
-    int pageNumber, offset, addr;
     struct addressComponents address;
 
     address.logicalAddress = logicalAddress;
     address.offset = logicalAddress & 0xff;
     address.pageNumber = (logicalAddress >> 8) & 0xff;
-    // printf("PageN: %d  offset: %d\n", address.pageNumber, address.offset);
 
     return address;
 }
@@ -90,23 +126,35 @@ int main()
     addresses = fopen("addresses.txt", "r");
     fileBin = fopen("BACKING_STORE.bin", "rb");
 
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < (sizeof(pageTable) / sizeof(int)); i++)
     {
         pageTable[i] = -1;
     }
 
+    for (int i = 0; i < (sizeof(tlb) / sizeof(int)); i++)
+    {
+        tlb[i][0] = -1;
+        tlb[i][1] = -1;
+    }
+
     for (int i = 0; i < 1000; i++)
     {
+        // get the virtual address
         fgets(buffer, 8, addresses);
-
         sscanf(buffer, "%d", &logicalAddress);
 
+        // populate addressList with logical/physical address
         addressList[i] = parseAddress(logicalAddress);
         addressList[i].physicalAddress = (search(addressList[i]) * 256) + addressList[i].offset;
-        printf("logical address: %d", addressList[i].logicalAddress);
-        printf("  physical address: %d", addressList[i].physicalAddress);
-        signed int lol = memory[addressList[i].physicalAddress];
-        printf("  value: %d\n", lol); // Make print signed plz
+
+        // print out addresses
+        printf("Virtual address: %d ", addressList[i].logicalAddress);
+        printf("Physical address: %d ", addressList[i].physicalAddress);
+        signed int value = memory[addressList[i].physicalAddress];
+        printf("Value: %d\n", value); // Make print signed plz
     }
+
+    printf("TLB Hit Rate: %f\n", tlbHits / 1000.0);
+    printf("Page Fault Rate: %f\n", pageFaults / 1000.0);
     return 0;
 }
